@@ -2,7 +2,7 @@
 /*
 Plugin Name: Custom Sitemap
 Description: Custom Sitemap
-Version:     5.1
+Version:     0.01
 Plugin URI:  https://mer.vin
 Author:      Mervin Praison
 Author URI:  https://mer.vin
