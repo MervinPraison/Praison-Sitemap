@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: Custom Sitemap
-Description: Custom Sitemap
+Plugin Name: Praison Sitemap
+Description: Praison Sitemap
 Version:     0.01
 Plugin URI:  https://mer.vin
 Author:      Mervin Praison
