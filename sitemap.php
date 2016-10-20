@@ -16,6 +16,8 @@ License:     GPL v2 or later
 	$max_posts_per_page = 1000; // Define on Build_Root_Maps( )Function 
 	$offset = 1; // Define on Build_Root_Maps( )Function
 	$query_variable ='' ;
+	$tax_slugs = array('weather', 'timeanddate', 'traffic', 'roadworks');
+	$post_slugs = array('tags', 'tag');
 	$pluginurl = plugin_dir_url( __FILE__ );
 	$stylesheet = '<?xml-stylesheet type="text/xsl" href="'.$pluginurl.'css/xml-sitemap-xsl.php"?>';
 
@@ -25,6 +27,7 @@ License:     GPL v2 or later
 		$GLOBALS['wp']->add_query_var( 'sitemaps_n' );
 		add_rewrite_rule( 'sitemaps\.xml$', 'index.php?sitemaps=1', 'top' );
 		add_rewrite_rule( '([^/]+?)-sitemaps([0-9]+)?\.xml$', 'index.php?sitemaps=$matches[1]&sitemaps_n=$matches[2]', 'top' );
+		add_rewrite_rule( 'sitemaps([0-9]+)?\.xml$', 'index.php?sitemaps=1&sitemaps_n=$matches[1]', 'top' );
 		$wp_rewrite->flush_rules();
 	}
 
@@ -132,8 +135,8 @@ License:     GPL v2 or later
 		//global $wp_query;	
 		//$arraykeys = array_keys($wp_query->query_vars);
 
-		$tax_slugs = array('weather', 'timeanddate', 'traffic', 'roadworks');
-		$post_slugs = array('tags', 'tag');
+		global $tax_slugs;
+		global $post_slugs;
 
 		// Default Taxonomy without extra Slugs
 
@@ -171,9 +174,56 @@ License:     GPL v2 or later
 			$sitemap .= '</urlset>';
 			
 
-		} else {
-			$sitemap .= build_root_maps();	
+		} elseif(get_query_var(sitemaps)=='1' && get_query_var(sitemaps_n)){
+			
+			
+			$count = min(count($post_slugs), count($tax_slugs));
+			$post_tax_combine = array_combine(array_slice($post_slugs, 0, $count), array_slice($tax_slugs, 0, $count));
 
+			if ($post_tax_combine) {
+				$i = 1;
+				foreach ($post_tax_combine as $key => $value) {
+					if ( get_query_var(sitemaps_n) == $i ) {
+						$args = array (
+							'post_slugs' => $key,
+							'tax_slugs' => $value,
+						);
+						$sitemap .= build_root_maps($args);	
+					}
+					$i++;
+				}
+			}
+
+			if ($post_tax_combine){
+				foreach($post_tax_combine as $key => $value ){
+					$post_tax_done[] = $key;
+					$post_tax_done[] = $value;
+				}
+			}
+
+			$post_tax_merge = array_merge($post_slugs, $tax_slugs);
+			if (count($post_slugs)>count($tax_slugs) && count($post_slugs) != count($tax_slugs)){
+				// do something here
+			} else {
+				$post_tax_diff = array_diff($post_tax_merge, $post_tax_done);					
+					foreach ($post_tax_diff as $value) {
+						if ( get_query_var(sitemaps_n) == $i ) {
+							$args = array (
+								'post_slugs' => '',
+								'tax_slugs' => $value,
+								'show_posts' => FALSE,
+							);
+							$sitemap .= build_root_maps($args);	
+						}
+						$i++;
+					}
+			}
+
+
+
+		} else {
+			$args = null; 
+			$sitemap .= build_root_maps($args);
 
 		}
 		
@@ -183,11 +233,22 @@ License:     GPL v2 or later
 			
 	}
 
-	function build_root_maps() {
+	function build_root_maps($arg) {
 		global $max_posts_per_page;
 		// Get Custom Post Types
 
-		
+		if (isset($arg['post_slugs'])){
+			$post_slugs = $arg['post_slugs'];
+		}
+		if (isset($arg['tax_slugs'])){
+			$tax_slugs = $arg['tax_slugs'];
+		}
+		if (isset($arg['show_posts'])){
+			$show_posts = $arg['show_posts'];
+		} else {
+			$show_posts = true;
+		}
+
 		// Listing the Post types : Start
 
 		$default_post_types = array('post'=>'post','page'=>'page');
@@ -209,8 +270,9 @@ License:     GPL v2 or later
 				'post_type'=>$post_type,
 				'total_pages' =>$total_pages,
 				'offset' => $offset,
-			);
-			$sitemap .= build_root_maps_sub($args);
+				'post_slugs' => $post_slugs,
+			);			
+			if ($show_posts) $sitemap .= build_root_maps_sub($args);
 			
 		}
 		$time_elapsed_secs = microtime(true) - $start;
@@ -238,6 +300,7 @@ License:     GPL v2 or later
 				'term'=>$term,
 				'total_pages' =>$total_terms,
 				'offset' => $offset,
+				'tax_slugs' => $tax_slugs,
 			);			
 			$sitemap .= build_root_maps_sub($args);			
 			$i++;
@@ -269,10 +332,16 @@ License:     GPL v2 or later
 		if (isset ($args['offset'])) {
 			$offset = $args['offset'];
 		}
+		if (isset ($args['post_slugs'])) {
+			$post_slugs = $args['post_slugs'];
+		}
+		if (isset ($args['tax_slugs'])) {
+			$tax_slugs = $args['tax_slugs'];
+		}
 
 		global $max_posts_per_page;
 
-		if (!get_query_var('sitemaps_n')&& substr(str_replace('/', '', $_SERVER[REQUEST_URI]), -7) != 'ps0.xml') {			
+		if (get_query_var('sitemaps')==1 && substr(str_replace('/', '', $_SERVER[REQUEST_URI]), -7) != 'ps0.xml') {			
 
 			$number_of_loops = round($total_pages/$max_posts_per_page);
 			if ($number_of_loops<1) $number_of_loops = 1;
@@ -284,7 +353,9 @@ License:     GPL v2 or later
 				$offset = ($i-1) * $max_posts_per_page;
 				
 				if ($post_type && $post_type!='st_kb' && $post_type!='page') {
-					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$post_type.'-sitemaps'.$i.'.xml</loc>' . "\n\t";
+					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$post_type;
+					if ($post_slugs)$string .= '-'.$post_slugs;
+					$string .= '-sitemaps'.$i.'.xml</loc>' . "\n\t";
 					$args = array (
 						'offset' => $offset,
 						'max_posts_per_page' => $max_posts_per_page,
@@ -303,7 +374,9 @@ License:     GPL v2 or later
 					//$latest_modified_date = get_latest_modified_date($args);
 					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
 				} elseif ($term){
-					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$term.'-sitemaps'.$i.'.xml</loc>' . "\n\t";
+					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$term;
+					if ($tax_slugs)$string .= '-'.$tax_slugs;
+					$string .= '-sitemaps'.$i.'.xml</loc>' . "\n\t";
 					//$max_posts_per_page_2 = $max_posts_per_page * $max_posts_per_page;
 					//$offset = ($i-1) * $max_posts_per_page_2;					
 					$args = array (
@@ -320,8 +393,7 @@ License:     GPL v2 or later
 						// wp_cache_set( $key, $latest_modified_date, 'sitemap_time' );
 						set_transient($key, $latest_modified_date);
 					}						
-					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
-					$string = null;
+					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";					
 				}
 
 				$time_elapsed_secs = microtime(true) - $start;
