@@ -15,9 +15,28 @@ License:     GPL v2 or later
 
 	$max_posts_per_page = 1000; // Define on Build_Root_Maps( )Function 
 	$offset = 1; // Define on Build_Root_Maps( )Function
-	$query_variable ='' ;
+	$query_variable ='' ; // This will apply filter 
+
+	$post_slugs = array('tags', 'tag', 'xml');
+	$exclude_post_type = array('tag' => array('post'));	
+
+	$exclude_post_types_post = array_values ($exclude_post_type);	
+	foreach ($exclude_post_types_post as $exclude_post_types_post) {
+		$exclude_post_types_post_change = $exclude_post_types_post;		
+	}
+	$exclude_post_types_post = $exclude_post_types_post_change;
+	$exclude_post_types_slugs = array_keys ($exclude_post_type);	
+
 	$tax_slugs = array('weather', 'timeanddate', 'traffic', 'roadworks');
-	$post_slugs = array('tags', 'tag');
+	$exclude_tax_type = array('weather' => array('category','section'));
+
+	$exclude_tax_types_post = array_values ($exclude_tax_type);		
+	foreach ($exclude_tax_types_post as $exclude_tax_types_post) {
+		$exclude_tax_types_post_change = $exclude_tax_types_post;		
+	}
+	$exclude_tax_types_post = $exclude_tax_types_post_change;
+	$exclude_tax_types_slugs = array_keys ($exclude_tax_type);		
+	
 	$pluginurl = plugin_dir_url( __FILE__ );
 	$stylesheet = '<?xml-stylesheet type="text/xsl" href="'.$pluginurl.'css/xml-sitemap-xsl.php"?>';
 
@@ -179,14 +198,31 @@ License:     GPL v2 or later
 			
 			$count = min(count($post_slugs), count($tax_slugs));
 			$post_tax_combine = array_combine(array_slice($post_slugs, 0, $count), array_slice($tax_slugs, 0, $count));
-
+			$post_tax_merge = array_merge($post_slugs, $tax_slugs);			
+			global $exclude_post_types_slugs;
+			global $exclude_post_types_post;
+			global $exclude_tax_types_slugs;
+			global $exclude_tax_types_post;
 			if ($post_tax_combine) {
 				$i = 1;
 				foreach ($post_tax_combine as $key => $value) {
 					if ( get_query_var(sitemaps_n) == $i ) {
+						if(in_array($key, $exclude_post_types_slugs)) {
+							$exclude_post_type = $exclude_post_types_post;							
+						} else {
+							$exclude_post_type = NULL;
+						}
+						if(in_array($value, $exclude_tax_types_slugs)) {
+							$exclude_tax_type = $exclude_tax_types_post;							
+						} else {
+							$exclude_tax_type = NULL;
+						}
+
 						$args = array (
 							'post_slugs' => $key,
 							'tax_slugs' => $value,
+							'exclude_post_type' => $exclude_post_type,
+							'exclude_tax_type' => $exclude_tax_type,
 						);
 						$sitemap .= build_root_maps($args);	
 					}
@@ -201,18 +237,26 @@ License:     GPL v2 or later
 				}
 			}
 
-			$post_tax_merge = array_merge($post_slugs, $tax_slugs);
-			if (count($post_slugs)>count($tax_slugs) && count($post_slugs) != count($tax_slugs)){
-				// do something here
-			} else {
+			
+			if (count($post_slugs) != count($tax_slugs)){
 				$post_tax_diff = array_diff($post_tax_merge, $post_tax_done);					
 					foreach ($post_tax_diff as $value) {
 						if ( get_query_var(sitemaps_n) == $i ) {
-							$args = array (
-								'post_slugs' => '',
-								'tax_slugs' => $value,
-								'show_posts' => FALSE,
-							);
+							if (count($post_slugs)<count($tax_slugs) ){
+								$args = array (
+									'post_slugs' => '',
+									'tax_slugs' => $value,
+									'show_posts' => FALSE,
+									'show_tax' => TRUE,
+								);
+							} else {
+								$args = array (
+									'post_slugs' => $value,
+									'tax_slugs' => '',
+									'show_tax' => FALSE,
+									'show_posts' => TRUE, 
+								);
+							}
 							$sitemap .= build_root_maps($args);	
 						}
 						$i++;
@@ -238,9 +282,11 @@ License:     GPL v2 or later
 		// Get Custom Post Types
 
 		if (isset($arg['post_slugs'])){
+			if($post_slugs==FALSE) $show_posts = FALSE;
 			$post_slugs = $arg['post_slugs'];
 		}
 		if (isset($arg['tax_slugs'])){
+			if($tax_slugs==FALSE) $show_tax = FALSE;
 			$tax_slugs = $arg['tax_slugs'];
 		}
 		if (isset($arg['show_posts'])){
@@ -248,6 +294,17 @@ License:     GPL v2 or later
 		} else {
 			$show_posts = true;
 		}
+		if (isset($arg['show_tax'])){
+			$show_tax = $arg['show_tax'];
+		} else {
+			$show_tax = true;
+		}
+		if ($arg['exclude_post_type']){
+			$exclude_post_type = $arg['exclude_post_type'];
+		} else {
+			$exclude_post_type = array();
+		}
+		$arg['exclude_tax_type'] ? $exclude_tax_type = $arg['exclude_tax_type'] : $exclude_tax_type = array();
 
 		// Listing the Post types : Start
 
@@ -272,7 +329,9 @@ License:     GPL v2 or later
 				'offset' => $offset,
 				'post_slugs' => $post_slugs,
 			);			
-			if ($show_posts) $sitemap .= build_root_maps_sub($args);
+			if (!in_array($post_type, $exclude_post_type) && $show_posts) {
+					$sitemap .= build_root_maps_sub($args);
+			}
 			
 		}
 		$time_elapsed_secs = microtime(true) - $start;
@@ -302,11 +361,46 @@ License:     GPL v2 or later
 				'offset' => $offset,
 				'tax_slugs' => $tax_slugs,
 			);			
-			$sitemap .= build_root_maps_sub($args);			
+			if (!in_array($term, $exclude_tax_type) && $show_tax) {
+					$sitemap .= build_root_maps_sub($args);
+			}		
 			$i++;
 		}
 
 		// Listing Taxonomies : End 
+
+		// Displaying sitemap1, sitemap2..etc
+		global $post_slugs;
+		global $tax_slugs;
+
+		$extra_sitemap_count = max(count($post_slugs), count($tax_slugs));
+		
+		if($extra_sitemap_count && get_query_var('sitemaps_n')==NULL && get_query_var('sitemaps')=='1') {
+			
+			for ($i=1;$i<=$extra_sitemap_count;$i++){
+
+					$sitemap .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/';					
+					$sitemap .= 'sitemaps'.$i.'.xml</loc>' . "\n\t";
+
+					// getting the Latest modified date
+					
+					$key = "latestmodifieddate:gmt:sitemaps:".$i;					
+					$latest_modified_date = get_transient($key);
+					
+					if (!$latest_modified_date) {
+						$latest_modified_date = current_time('mysql', '1');
+						set_transient($key, $latest_modified_date );
+					}
+
+					// End of getting Latest Modified date
+
+					$sitemap .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
+
+				}
+		}
+
+
+		// Filter for adding extra sitemap
 
 
 			if(has_filter('add_root_sitemap') && $sitemap!=null) {
