@@ -15,7 +15,28 @@ License:     GPL v2 or later
 
 	$max_posts_per_page = 1000; // Define on Build_Root_Maps( )Function 
 	$offset = 1; // Define on Build_Root_Maps( )Function
-	$query_variable ='' ;
+	$query_variable ='' ; // This will apply filter 
+
+	$post_slugs = array('tags', 'tag', 'xml');
+	$exclude_post_type = array('tag' => array('post'));	
+
+	$exclude_post_types_post = array_values ($exclude_post_type);	
+	foreach ($exclude_post_types_post as $exclude_post_types_post) {
+		$exclude_post_types_post_change = $exclude_post_types_post;		
+	}
+	$exclude_post_types_post = $exclude_post_types_post_change;
+	$exclude_post_types_slugs = array_keys ($exclude_post_type);	
+
+	$tax_slugs = array('weather', 'timeanddate', 'traffic', 'roadworks');
+	$exclude_tax_type = array('weather' => array('category','section'));
+
+	$exclude_tax_types_post = array_values ($exclude_tax_type);		
+	foreach ($exclude_tax_types_post as $exclude_tax_types_post) {
+		$exclude_tax_types_post_change = $exclude_tax_types_post;		
+	}
+	$exclude_tax_types_post = $exclude_tax_types_post_change;
+	$exclude_tax_types_slugs = array_keys ($exclude_tax_type);		
+	
 	$pluginurl = plugin_dir_url( __FILE__ );
 	$stylesheet = '<?xml-stylesheet type="text/xsl" href="'.$pluginurl.'css/xml-sitemap-xsl.php"?>';
 
@@ -25,6 +46,7 @@ License:     GPL v2 or later
 		$GLOBALS['wp']->add_query_var( 'sitemaps_n' );
 		add_rewrite_rule( 'sitemaps\.xml$', 'index.php?sitemaps=1', 'top' );
 		add_rewrite_rule( '([^/]+?)-sitemaps([0-9]+)?\.xml$', 'index.php?sitemaps=$matches[1]&sitemaps_n=$matches[2]', 'top' );
+		add_rewrite_rule( 'sitemaps([0-9]+)?\.xml$', 'index.php?sitemaps=1&sitemaps_n=$matches[1]', 'top' );
 		$wp_rewrite->flush_rules();
 	}
 
@@ -132,8 +154,8 @@ License:     GPL v2 or later
 		//global $wp_query;	
 		//$arraykeys = array_keys($wp_query->query_vars);
 
-		$tax_slugs = array('weather', 'timeanddate', 'traffic', 'roadworks');
-		$post_slugs = array('tags', 'tag');
+		global $tax_slugs;
+		global $post_slugs;
 
 		// Default Taxonomy without extra Slugs
 
@@ -171,9 +193,81 @@ License:     GPL v2 or later
 			$sitemap .= '</urlset>';
 			
 
-		} else {
-			$sitemap .= build_root_maps();	
+		} elseif(get_query_var(sitemaps)=='1' && get_query_var(sitemaps_n)){
+			
+			
+			$count = min(count($post_slugs), count($tax_slugs));
+			$post_tax_combine = array_combine(array_slice($post_slugs, 0, $count), array_slice($tax_slugs, 0, $count));
+			$post_tax_merge = array_merge($post_slugs, $tax_slugs);			
+			global $exclude_post_types_slugs;
+			global $exclude_post_types_post;
+			global $exclude_tax_types_slugs;
+			global $exclude_tax_types_post;
+			if ($post_tax_combine) {
+				$i = 1;
+				foreach ($post_tax_combine as $key => $value) {
+					if ( get_query_var(sitemaps_n) == $i ) {
+						if(in_array($key, $exclude_post_types_slugs)) {
+							$exclude_post_type = $exclude_post_types_post;							
+						} else {
+							$exclude_post_type = NULL;
+						}
+						if(in_array($value, $exclude_tax_types_slugs)) {
+							$exclude_tax_type = $exclude_tax_types_post;							
+						} else {
+							$exclude_tax_type = NULL;
+						}
 
+						$args = array (
+							'post_slugs' => $key,
+							'tax_slugs' => $value,
+							'exclude_post_type' => $exclude_post_type,
+							'exclude_tax_type' => $exclude_tax_type,
+						);
+						$sitemap .= build_root_maps($args);	
+					}
+					$i++;
+				}
+			}
+
+			if ($post_tax_combine){
+				foreach($post_tax_combine as $key => $value ){
+					$post_tax_done[] = $key;
+					$post_tax_done[] = $value;
+				}
+			}
+
+			
+			if (count($post_slugs) != count($tax_slugs)){
+				$post_tax_diff = array_diff($post_tax_merge, $post_tax_done);					
+					foreach ($post_tax_diff as $value) {
+						if ( get_query_var(sitemaps_n) == $i ) {
+							if (count($post_slugs)<count($tax_slugs) ){
+								$args = array (
+									'post_slugs' => '',
+									'tax_slugs' => $value,
+									'show_posts' => FALSE,
+									'show_tax' => TRUE,
+								);
+							} else {
+								$args = array (
+									'post_slugs' => $value,
+									'tax_slugs' => '',
+									'show_tax' => FALSE,
+									'show_posts' => TRUE, 
+								);
+							}
+							$sitemap .= build_root_maps($args);	
+						}
+						$i++;
+					}
+			}
+
+
+
+		} else {
+			$args = null; 
+			$sitemap .= build_root_maps($args);
 
 		}
 		
@@ -183,11 +277,35 @@ License:     GPL v2 or later
 			
 	}
 
-	function build_root_maps() {
+	function build_root_maps($arg) {
 		global $max_posts_per_page;
 		// Get Custom Post Types
 
-		
+		if (isset($arg['post_slugs'])){
+			if($post_slugs==FALSE) $show_posts = FALSE;
+			$post_slugs = $arg['post_slugs'];
+		}
+		if (isset($arg['tax_slugs'])){
+			if($tax_slugs==FALSE) $show_tax = FALSE;
+			$tax_slugs = $arg['tax_slugs'];
+		}
+		if (isset($arg['show_posts'])){
+			$show_posts = $arg['show_posts'];
+		} else {
+			$show_posts = true;
+		}
+		if (isset($arg['show_tax'])){
+			$show_tax = $arg['show_tax'];
+		} else {
+			$show_tax = true;
+		}
+		if ($arg['exclude_post_type']){
+			$exclude_post_type = $arg['exclude_post_type'];
+		} else {
+			$exclude_post_type = array();
+		}
+		$arg['exclude_tax_type'] ? $exclude_tax_type = $arg['exclude_tax_type'] : $exclude_tax_type = array();
+
 		// Listing the Post types : Start
 
 		$default_post_types = array('post'=>'post','page'=>'page');
@@ -209,8 +327,11 @@ License:     GPL v2 or later
 				'post_type'=>$post_type,
 				'total_pages' =>$total_pages,
 				'offset' => $offset,
-			);
-			$sitemap .= build_root_maps_sub($args);
+				'post_slugs' => $post_slugs,
+			);			
+			if (!in_array($post_type, $exclude_post_type) && $show_posts) {
+					$sitemap .= build_root_maps_sub($args);
+			}
 			
 		}
 		$time_elapsed_secs = microtime(true) - $start;
@@ -238,12 +359,48 @@ License:     GPL v2 or later
 				'term'=>$term,
 				'total_pages' =>$total_terms,
 				'offset' => $offset,
+				'tax_slugs' => $tax_slugs,
 			);			
-			$sitemap .= build_root_maps_sub($args);			
+			if (!in_array($term, $exclude_tax_type) && $show_tax) {
+					$sitemap .= build_root_maps_sub($args);
+			}		
 			$i++;
 		}
 
 		// Listing Taxonomies : End 
+
+		// Displaying sitemap1, sitemap2..etc
+		global $post_slugs;
+		global $tax_slugs;
+
+		$extra_sitemap_count = max(count($post_slugs), count($tax_slugs));
+		
+		if($extra_sitemap_count && get_query_var('sitemaps_n')==NULL && get_query_var('sitemaps')=='1') {
+			
+			for ($i=1;$i<=$extra_sitemap_count;$i++){
+
+					$sitemap .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/';					
+					$sitemap .= 'sitemaps'.$i.'.xml</loc>' . "\n\t";
+
+					// getting the Latest modified date
+					
+					$key = "latestmodifieddate:gmt:sitemaps:".$i;					
+					$latest_modified_date = get_transient($key);
+					
+					if (!$latest_modified_date) {
+						$latest_modified_date = current_time('mysql', '1');
+						set_transient($key, $latest_modified_date );
+					}
+
+					// End of getting Latest Modified date
+
+					$sitemap .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
+
+				}
+		}
+
+
+		// Filter for adding extra sitemap
 
 
 			if(has_filter('add_root_sitemap') && $sitemap!=null) {
@@ -269,10 +426,16 @@ License:     GPL v2 or later
 		if (isset ($args['offset'])) {
 			$offset = $args['offset'];
 		}
+		if (isset ($args['post_slugs'])) {
+			$post_slugs = $args['post_slugs'];
+		}
+		if (isset ($args['tax_slugs'])) {
+			$tax_slugs = $args['tax_slugs'];
+		}
 
 		global $max_posts_per_page;
 
-		if (!get_query_var('sitemaps_n')&& substr(str_replace('/', '', $_SERVER[REQUEST_URI]), -7) != 'ps0.xml') {			
+		if (get_query_var('sitemaps')==1 && substr(str_replace('/', '', $_SERVER[REQUEST_URI]), -7) != 'ps0.xml') {			
 
 			$number_of_loops = round($total_pages/$max_posts_per_page);
 			if ($number_of_loops<1) $number_of_loops = 1;
@@ -284,7 +447,9 @@ License:     GPL v2 or later
 				$offset = ($i-1) * $max_posts_per_page;
 				
 				if ($post_type && $post_type!='st_kb' && $post_type!='page') {
-					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$post_type.'-sitemaps'.$i.'.xml</loc>' . "\n\t";
+					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$post_type;
+					if ($post_slugs)$string .= '-'.$post_slugs;
+					$string .= '-sitemaps'.$i.'.xml</loc>' . "\n\t";
 					$args = array (
 						'offset' => $offset,
 						'max_posts_per_page' => $max_posts_per_page,
@@ -303,7 +468,9 @@ License:     GPL v2 or later
 					//$latest_modified_date = get_latest_modified_date($args);
 					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
 				} elseif ($term){
-					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$term.'-sitemaps'.$i.'.xml</loc>' . "\n\t";
+					$string .= '<sitemap>' . "\n\t" .'<loc>'.home_url().'/'.$term;
+					if ($tax_slugs)$string .= '-'.$tax_slugs;
+					$string .= '-sitemaps'.$i.'.xml</loc>' . "\n\t";
 					//$max_posts_per_page_2 = $max_posts_per_page * $max_posts_per_page;
 					//$offset = ($i-1) * $max_posts_per_page_2;					
 					$args = array (
@@ -320,8 +487,7 @@ License:     GPL v2 or later
 						// wp_cache_set( $key, $latest_modified_date, 'sitemap_time' );
 						set_transient($key, $latest_modified_date);
 					}						
-					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";
-					$string = null;
+					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n" .'</sitemap>' . "\n\n";					
 				}
 
 				$time_elapsed_secs = microtime(true) - $start;
