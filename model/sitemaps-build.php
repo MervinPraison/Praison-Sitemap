@@ -1,5 +1,41 @@
 <?php
 
+/*
+
+1. Index
+2. Build
+3. Root
+4. Root Sub
+5. 
+
+*/
+
+	$SitemapFilters = new SitemapsFilters();
+	$post_slugs = $SitemapFilters->post_slugs;	
+	$tax_slugs = $SitemapFilters->tax_slugs;
+
+ 	$max_posts_per_page = $SitemapFilters->max_posts_per_page; // Define on Build_Root_Maps( )Function 
+	$offset = $SitemapFilters->offset; // Define on Build_Root_Maps( )Function
+	$query_variable = $SitemapFilters->query_variable; // This will apply filter
+
+	$exclude_post_type = array('tag' => array('post'));	
+
+	$exclude_post_types_post = array_values ($exclude_post_type);	
+	foreach ($exclude_post_types_post as $exclude_post_types_post) {
+		$exclude_post_types_post_change = $exclude_post_types_post;		
+	}
+	$exclude_post_types_post = $exclude_post_types_post_change;
+	$exclude_post_types_slugs = array_keys ($exclude_post_type);
+	
+	$exclude_tax_type = array('weather' => array('category','section'));
+
+	$exclude_tax_types_post = array_values ($exclude_tax_type);		
+	foreach ($exclude_tax_types_post as $exclude_tax_types_post) {
+		$exclude_tax_types_post_change = $exclude_tax_types_post;		
+	}
+	$exclude_tax_types_post = $exclude_tax_types_post_change;
+	$exclude_tax_types_slugs = array_keys ($exclude_tax_type);	
+
 Class Build {
 
 	public function build_sitemaps() {
