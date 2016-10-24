@@ -24,6 +24,7 @@ Class SitemapsPostsOffset {
   			}
 
   			global $post;
+  			global $ImageSitemap;
 
 
 			$the_query = new WP_Query(array('post_type'=>$post_type,'offset' =>$offset, 'posts_per_page' => $max_posts_per_page, 
@@ -45,8 +46,10 @@ Class SitemapsPostsOffset {
 					if ($slug) $string .= $slug.'/';	
 					$string .= '</loc>' . "\n\t";
 					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n\t" ;
-					$string .= '<changefreq>weekly</changefreq>' . "\n\t" ;
-					$string .= '<priority>0.6</priority>' . "\n" .'</url>' . "\n\n" ;
+					$string .= '<changefreq>weekly</changefreq>' . "\n\t" ;					
+					$string .= '<priority>'.$this->get_priority($post).'</priority>' . "\n" ; 
+					$string .= $ImageSitemap->image_sitemap($post);
+					$string .= '</url>' . "\n\n" ;
 
 					}
 				} else {
@@ -60,6 +63,20 @@ Class SitemapsPostsOffset {
 			wp_reset_postdata();
 
 			
+		}
+
+		public function get_priority($post){
+				$p = $post;
+				// $pri = '';
+				if (is_numeric($pri))
+					$link['pri'] = $pri;
+				elseif ($p->post_parent == 0 && $p->post_type == 'page')
+					$link['pri'] = 0.8;
+				else
+					$link['pri'] = 0.6;
+				if ( $p->ID == $front_id )
+					$link['pri'] = 1.0;
+				return $link['pri'];
 		}
 
 }
