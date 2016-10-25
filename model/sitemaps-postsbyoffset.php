@@ -21,6 +21,7 @@ Class SitemapsPostsOffset {
   			} 
   			if (isset($args["slug"])) { 
   				$slug = $args["slug"];
+  				$link['slug'] = $slug;
   			}
 
   			global $post;
@@ -36,20 +37,13 @@ Class SitemapsPostsOffset {
 				$string .= '';
 				while ( $the_query->have_posts() ) {
 					$the_query->the_post();						
-			    	$post_slug=$post->post_name;
-			    	$latest_modified_date = $post->post_modified_gmt;
-			    	$url = get_permalink();
-			    	if (has_filter('sitemap_change_url')){
-			    		$url = apply_filters('sitemap_change_url', $url);
-			    	}
-					$string .= '<url>' . "\n\t" .'<loc>'.$url;
-					if ($slug) $string .= $slug.'/';	
-					$string .= '</loc>' . "\n\t";
-					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $latest_modified_date ) )).'</lastmod>' . "\n\t" ;
-					$string .= '<changefreq>weekly</changefreq>' . "\n\t" ;					
-					$string .= '<priority>'.$this->get_priority($post).'</priority>' . "\n" ; 
-					$string .= $ImageSitemap->image_sitemap($post);
-					$string .= '</url>' . "\n\n" ;
+			    	$link['post_slug']=$post->post_name;
+			    	$link['latest_modified_date'] = $post->post_modified_gmt;
+			    	$link['url'] = get_permalink();
+			    	$link['priority'] = $this->get_priority($post);
+			    	$link['frequency'] = $this->get_frequency($post);
+			    	$link['image_sitemap'] = $ImageSitemap->image_sitemap($post);
+					$string .= $this->output_sitemap($link);
 
 					}
 				} else {
@@ -65,18 +59,39 @@ Class SitemapsPostsOffset {
 			
 		}
 
-		public function get_priority($post){
-				$p = $post;
+		public function output_sitemap($link){
+			    	if (has_filter('sitemap_change_url')){
+			    		$link['url'] = apply_filters('sitemap_change_url', $link['url']);
+			    	}
+					$string .= '<url>' . "\n\t" .'<loc>'.$link['url'];
+					if ($link['slug']) $string .= $link['slug'].'/';	
+					$string .= '</loc>' . "\n\t";
+					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $link['latest_modified_date'] ) )).'</lastmod>' . "\n\t" ;
+					$string .= '<changefreq>'.$link['frequency'].'</changefreq>' . "\n\t" ;					
+					$string .= '<priority>'.$link['priority'].'</priority>' . "\n" ; 
+					$string .= $link['image_sitemap'];
+					$string .= '</url>' . "\n\n" ;
+
+			return $string;
+		}
+
+		public function get_priority($post){				
 				// $pri = '';
+				// $front_id = '';
 				if (is_numeric($pri))
-					$link['pri'] = $pri;
-				elseif ($p->post_parent == 0 && $p->post_type == 'page')
-					$link['pri'] = 0.8;
+					$priority = $pri;
+				elseif ($post->post_parent == 0 && $post->post_type == 'page')
+					$priority = 0.8;
 				else
-					$link['pri'] = 0.6;
-				if ( $p->ID == $front_id )
-					$link['pri'] = 1.0;
-				return $link['pri'];
+					$priority = 0.6;
+				if ( $post->ID == $front_id )
+					$priority = 1.0;
+				return $priority;
+		}
+
+		public function get_frequency($post){
+			$frequency = 'weekly'; 
+			return $frequency;
 		}
 
 }
