@@ -8,16 +8,6 @@ Class ImageSitemap {
 
 	public function image_sitemap($post) {
 
-				/*$pri = zeo_get_value('sitemap-prio', $p->ID);
-				if (is_numeric($pri))
-					$link['pri'] = $pri;
-				elseif ($p->post_parent == 0 && $p->post_type == 'page')
-					$link['pri'] = 0.8;
-				else
-					$link['pri'] = 0.6;
-				if ( $p->ID == $front_id )
-					$link['pri'] = 1.0;*/
-
 				global $ImageSitemapBuild;
 
 				$p = $post;
