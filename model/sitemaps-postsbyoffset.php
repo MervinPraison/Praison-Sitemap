@@ -6,6 +6,7 @@ Class SitemapsPostsOffset {
 			
 		}
 
+
 		public function sitemap_postsbyoffset($args) {
 			// the query			
 			wp_reset_query();
@@ -26,15 +27,28 @@ Class SitemapsPostsOffset {
 
   			global $post;
   			global $ImageSitemap;
+  			global $OutputPost;
 
 
 			$the_query = new WP_Query(array('post_type'=>$post_type,'offset' =>$offset, 'posts_per_page' => $max_posts_per_page, 
     'nopaging' => false, 'orderby' => 'modified', 'order'=>'DESC'));		
 			
 			// The Loop for Post sitemaps
-			    
+			$string .= ''; 
+			if (get_query_var('sitemaps')=='page' && get_query_var('sitemaps_n')=='1')  {
+			    	$frontpage_id = get_option( 'page_on_front' );			    	
+			    	$frontpage_post = get_post($frontpage_id);
+			   		$link['latest_modified_date'] = $frontpage_post->post_modified_gmt;
+			   		$link['priority'] = 1.0;			    	
+			    	$link['post_slug']='';			    	
+			    	$link['url'] = home_url('/');			    	
+			    	$link['frequency'] = 'daily';
+			    	$link['image_sitemap'] = $ImageSitemap->image_sitemap($frontpage_post);
+					if(!$frontpage_id)$string .= $OutputPost->output_sitemap($link);
+					
+			}
 			if ( $the_query->have_posts() ) {
-				$string .= '';
+				
 				while ( $the_query->have_posts() ) {
 					$the_query->the_post();						
 			    	$link['post_slug']=$post->post_name;
@@ -43,7 +57,7 @@ Class SitemapsPostsOffset {
 			    	$link['priority'] = $this->get_priority($post);
 			    	$link['frequency'] = $this->get_frequency($post);
 			    	$link['image_sitemap'] = $ImageSitemap->image_sitemap($post);
-					$string .= $this->output_sitemap($link);
+					$string .= $OutputPost->output_sitemap($link);
 
 					}
 				} else {
@@ -59,38 +73,28 @@ Class SitemapsPostsOffset {
 			
 		}
 
-		public function output_sitemap($link){
-			    	if (has_filter('sitemap_change_url')){
-			    		$link['url'] = apply_filters('sitemap_change_url', $link['url']);
-			    	}
-					$string .= '<url>' . "\n\t" .'<loc>'.$link['url'];
-					if ($link['slug']) $string .= $link['slug'].'/';	
-					$string .= '</loc>' . "\n\t";
-					$string .= '<lastmod>'.htmlspecialchars(date( 'c', strtotime( $link['latest_modified_date'] ) )).'</lastmod>' . "\n\t" ;
-					$string .= '<changefreq>'.$link['frequency'].'</changefreq>' . "\n\t" ;					
-					$string .= '<priority>'.$link['priority'].'</priority>' . "\n" ; 
-					$string .= $link['image_sitemap'];
-					$string .= '</url>' . "\n\n" ;
-
-			return $string;
-		}
-
 		public function get_priority($post){				
 				// $pri = '';
-				// $front_id = '';
+				$frontpage_id = get_option( 'page_on_front' );
+				$blog_id = get_option( 'page_for_posts' );
 				if (is_numeric($pri))
 					$priority = $pri;
 				elseif ($post->post_parent == 0 && $post->post_type == 'page')
 					$priority = 0.8;
 				else
-					$priority = 0.6;
-				if ( $post->ID == $front_id )
+					$priority = 0.6;				
+				if ( $post->ID == $frontpage_id || $post->ID == $blog_id)
 					$priority = 1.0;
 				return $priority;
 		}
 
 		public function get_frequency($post){
-			$frequency = 'weekly'; 
+			$frontpage_id = get_option( 'page_on_front' );
+			$blog_id = get_option( 'page_for_posts' );
+			if ( $post->ID != $frontpage_id && $post->ID != $blog_id)
+					$frequency = 'weekly'; 
+			else 
+				$frequency = 'daily'; 
 			return $frequency;
 		}
 
