@@ -44,6 +44,7 @@ Sitemap Flow
 	require_once(plugin_dir_path( __FILE__ ) . "/model/sitemaps-ping-searchengines.php");
 	require_once(plugin_dir_path( __FILE__ ) . "/model/sitemaps-image.php");
 	require_once(plugin_dir_path( __FILE__ ) . "/model/sitemaps-image-build.php");
+	require_once(plugin_dir_path( __FILE__ ) . "/model/sitemaps-output-post.php");
 	
 
 	$SitemapsPostsOffset = new SitemapsPostsOffset();
@@ -57,6 +58,7 @@ Sitemap Flow
 	$IndexSitemap = new IndexSitemap();
 	$ImageSitemap = new ImageSitemap();
 	$ImageSitemapBuild = new ImageSitemapBuild();
+	$OutputPost = new OutputPost();
 
 	
 ?>
