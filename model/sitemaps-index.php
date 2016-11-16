@@ -10,7 +10,7 @@ Class IndexSitemap {
 		add_action( 'init', array($this, 'inits') );	
 		add_action( 'template_redirect', array($this,'redirects') );
 		add_action( 'seo_request_sitemap_index', array($this,'request_sitemap_index')  );
-		add_action( 'transition_post_status', array($this,'status_change', 10, 3 ));
+		add_action( 'transition_post_status', array($this,'status_change'), 10, 3 );
 		add_filter( 'redirect_canonical', array($this,'canonicals') );
 		$this->stylesheet = '<?xml-stylesheet type="text/xsl" href="'.SITEMAP_PLUGIN_URL.'view/css/xml-sitemap-xsl.php"?>';
 
